@@ -61,7 +61,20 @@ def build_population(cfg, rng):
     region_mal = rng.choice(regions, size=n_mal, p=weights / weights.sum())
     region = np.concatenate([region_innocent, region_mal])
 
-    df = pd.DataFrame({"kind": kinds, "n_users": users, "region": region})
+        # Address block (like a /16 network). Attackers cluster in "bad neighbourhoods".
+    n_prefix = w["n_prefixes"]
+    n_bad = max(1, round(n_prefix * w["bad_prefix_share"]))
+    prefix_innocent = rng.integers(0, n_prefix, size=n_innocent)
+    in_bad = rng.random(n_mal) < w["attackers_in_bad_prefix"]
+    prefix_mal = np.where(
+        in_bad,
+        rng.integers(0, n_bad, size=n_mal),
+        rng.integers(0, n_prefix, size=n_mal),
+    )
+    prefix = np.concatenate([prefix_innocent, prefix_mal])
+    prefix = rng.permutation(n_prefix)[prefix]  # shuffle the numbering so ids reveal nothing
+
+    df = pd.DataFrame({"kind": kinds, "n_users": users, "region": region, "prefix": prefix})
     df["is_malicious"] = df["kind"].isin(["attacker", "low_and_slow"])
 
     # Shuffle so the row order does not reveal who is malicious, then number the IPs.

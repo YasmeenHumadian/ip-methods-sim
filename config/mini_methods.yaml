@@ -17,6 +17,9 @@ world:
   regions: [A, B, C, D, E, F]    # abstract regions, not real countries
   high_risk_regions: [E, F]      # (assumption) regions with more malicious IPs
   high_risk_weight: 3.0          # (assumption) how much more likely
+  n_prefixes: 200                # (assumption) number of address blocks, like network ranges
+  bad_prefix_share: 0.20         # (assumption) share of blocks that are bad neighbourhoods
+  attackers_in_bad_prefix: 0.60  # (assumption) share of attackers living in bad neighbourhoods
 
 databases:
   detection_rates:               # (paper) Lewis et al. 2020, Section III-C

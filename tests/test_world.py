@@ -49,3 +49,10 @@ def test_high_risk_regions_hold_more_attackers():
     cfg, df = make()
     high = df["region"].isin(cfg["world"]["high_risk_regions"])
     assert high[df["is_malicious"]].mean() > high[~df["is_malicious"]].mean()
+
+def test_attackers_cluster_in_some_address_blocks():
+    cfg, df = make()
+    counts = df[df["is_malicious"]]["prefix"].value_counts()
+    n_bad = round(cfg["world"]["n_prefixes"] * cfg["world"]["bad_prefix_share"])
+    assert counts.head(n_bad).sum() > 0.5 * df["is_malicious"].sum()
+    assert df["prefix"].between(0, cfg["world"]["n_prefixes"] - 1).all()
