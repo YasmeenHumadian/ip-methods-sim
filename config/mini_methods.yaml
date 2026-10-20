@@ -1,0 +1,53 @@
+# Mini simulation v0.2 settings
+# (paper) = value taken from Lewis et al. 2020 or Jeon and Tak 2022 (BlackEye)
+# (assumption) = our own choice, also logged in assumptions.md
+
+seed: 1
+n_seeds: 10
+
+world:
+  n_ips: 2000                    # (assumption) how many IP addresses
+  malicious_share: 0.10          # (assumption) share of IPs that are malicious
+  shared_share: 0.40             # (assumption) share of innocent IPs shared by many users
+  users_per_shared_ip: [5, 50]   # (assumption) fewest and most users on a shared IP
+  days: 7                        # length of the activity window
+  logins_per_user_per_day: 3     # same as the outline
+  legit_error_rate: 0.05         # honest typo rate
+  low_and_slow_share: 0.30       # (assumption) malicious IPs that act like normal users
+  regions: [A, B, C, D, E, F]    # abstract regions, not real countries
+  high_risk_regions: [E, F]      # (assumption) regions with more malicious IPs
+  high_risk_weight: 3.0          # (assumption) how much more likely
+
+databases:
+  detection_rates:               # (paper) Lewis et al. 2020, Section III-C
+    virustotal: 0.13
+    myip: 0.16
+    abuseipdb: 0.46
+    apility: 0.73
+  false_positive_rate: 0.02      # (assumption) Lewis did not measure this
+
+crosscheck:
+  threshold: 0.5                 # (assumption) block if the weighted score is above this
+  weights: by_detection_rate     # (assumption) weights are not stated in the paper
+
+human_agent:                     # BlackEye baseline: the human blacklisting decision
+  recall: 0.25                   # (paper) BlackEye Table 4: agents found 25.1% of malicious IPs
+  precision: 0.90                # (paper) BlackEye Table 4: 89.8% of their blocks were correct
+
+cleansing:                       # BlackEye data cleansing, Section 2.4.1
+  enabled: true
+  first_model: ridge             # (paper) ridge regression gives the first scores
+  threshold: crossover           # (paper) cross-over of the two fitted score distributions
+
+ml:
+  train_share: 0.70              # (assumption) share of IPs used for training
+  rf_trees: 100                  # (paper) both papers use 100 trees
+  logistic_threshold: 0.5        # (paper) Lewis: above 0.5 means malicious
+  use_geolocation: true
+activity:
+  shared_burst_chance: 0.15          # (assumption) share of shared IPs with a bad week, e.g. a password reset day
+  shared_burst_failure_rate: 0.30    # (assumption) their failure rate that week
+  attacker_attempts_per_day: 150     # (assumption) average for loud attackers
+  slow_attempts_per_day: 40          # (assumption) average for low-and-slow attackers
+  attacker_failure_rate: 0.97        # (assumption) loud attackers almost always fail
+  slow_failure_rate: 0.20            # (assumption) low-and-slow attackers look nearly normal
