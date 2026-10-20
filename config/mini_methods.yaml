@@ -25,6 +25,7 @@ databases:
     abuseipdb: 0.46
     apility: 0.73
   false_positive_rate: 0.02      # (assumption) Lewis did not measure this
+  shared_fp_multiplier: 3.0      # (assumption) shared IPs are listed by mistake this many times more often
 
 crosscheck:
   threshold: 0.5                 # (assumption) block if the weighted score is above this
