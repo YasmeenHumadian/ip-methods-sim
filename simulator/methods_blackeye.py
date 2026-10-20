@@ -26,3 +26,34 @@ def human_agent(df, cfg, seed=None):
     chosen = rng.choice(len(df), size=n_wrong, replace=False, p=weights / weights.sum())
     blocked[chosen] = True
     return blocked
+
+# ---- Data cleansing (step 13) ----
+from scipy import stats
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import StandardScaler
+
+
+def crossover_point(score, labels):
+    """The score where the 'safe' and 'malicious' bell curves cross."""
+    s0, s1 = score[~labels], score[labels]
+    m0, m1 = s0.mean(), s1.mean()
+    sd0, sd1 = max(s0.std(), 1e-9), max(s1.std(), 1e-9)
+    grid = np.linspace(m0, m1, 2001)
+    gap = stats.norm.pdf(grid, m0, sd0) - stats.norm.pdf(grid, m1, sd1)
+    return grid[np.argmin(np.abs(gap))]
+
+
+def cleanse(X, labels, cfg):
+    """Returns True for the training points to KEEP; False = looks mislabelled."""
+    labels = np.asarray(labels, dtype=bool)
+    keep = np.ones(len(labels), dtype=bool)
+    if not cfg["cleansing"]["enabled"] or labels.sum() < 5 or (~labels).sum() < 5:
+        return keep
+
+    Xs = StandardScaler().fit_transform(X)
+    score = Ridge(alpha=1.0).fit(Xs, labels.astype(float)).predict(Xs)
+    if score[labels].mean() <= score[~labels].mean():
+        return keep  # the first model found nothing useful, so do not trust it to drop anything
+
+    cross = crossover_point(score, labels)
+    return np.where(labels, score >= cross, score < cross)
