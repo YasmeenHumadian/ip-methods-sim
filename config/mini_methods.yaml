@@ -28,7 +28,7 @@ databases:
   shared_fp_multiplier: 3.0      # (assumption) shared IPs are listed by mistake this many times more often
 
 crosscheck:
-  threshold: 0.5                 # (assumption) block if the weighted score is above this
+  threshold: 0.2                 # (assumption) block if score is at least this; chosen so detection is near the 82% Lewis reports
   weights: by_detection_rate     # (assumption) weights are not stated in the paper
 
 human_agent:                     # BlackEye baseline: the human blacklisting decision
