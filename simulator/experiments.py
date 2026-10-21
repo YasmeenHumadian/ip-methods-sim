@@ -4,7 +4,7 @@ import pandas
 from simulator.config import load_config
 from simulator.databases import database_flags
 from simulator.evaluate import agent_wrong_blocks_corrected, evaluate
-from simulator.methods_blackeye import BLACKEYE_MODELS, blackeye, human_agent
+from simulator.methods_blackeye import BLACKEYE_MODELS, blackeye, blackeye_features, cleanse, human_agent
 from simulator.methods_lewis import ML_MODELS, crosscheck, lewis_ml, single_database
 from simulator.world import build_world
 
@@ -65,3 +65,40 @@ def summarise(results, by="method"):
     cols = [c for c in METRICS + ["agent_wrong_corrected"] if c in results]
     grouped = results.groupby(by, sort=False)[cols]
     return grouped.mean().round(3).astype(str) + " ± " + grouped.std().round(3).astype(str)
+
+def run_once(cfg, seed=None):
+    """One world, every method: used by the GUI."""
+    seed = cfg["seed"] if seed is None else seed
+    df = make_world(cfg, seed)
+    rows = []
+    for name, blocked in all_methods(df, cfg, seed).items():
+        row = evaluate(df, blocked)
+        row["method"] = name
+        rows.append(row)
+    return df, pandas.DataFrame(rows)
+
+
+def cleansing_demo(cfg, seed=None):
+    """What cleansing does to the human agent's labels in one world, and what it changes."""
+    import copy
+
+    cfg = copy.deepcopy(cfg)
+    cfg["cleansing"]["enabled"] = True
+    seed = cfg["seed"] if seed is None else seed
+    df = make_world(cfg, seed)
+    agent = human_agent(df, cfg, seed)
+    keep = cleanse(blackeye_features(df, cfg), agent, cfg)
+    wrong = agent != df["is_malicious"].to_numpy()
+    counts = {
+        "labels": len(df),
+        "wrong_labels": int(wrong.sum()),
+        "dropped": int((~keep).sum()),
+        "wrong_dropped": int((wrong & ~keep).sum()),
+    }
+    rows = []
+    for cleansing in (False, True):
+        blocked = blackeye(df, cfg, "logistic", use_cleansing=cleansing, seed=seed)
+        row = evaluate(df, blocked)
+        row["cleansing"] = "on" if cleansing else "off"
+        rows.append(row)
+    return counts, pandas.DataFrame(rows)
