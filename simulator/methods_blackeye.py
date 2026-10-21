@@ -57,3 +57,64 @@ def cleanse(X, labels, cfg):
 
     cross = crossover_point(score, labels)
     return np.where(labels, score >= cross, score < cross)
+
+
+# ---- BlackEye models (step 14) ----
+import pandas
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+
+from simulator.methods_lewis import crosscheck_score
+from simulator.world import FEATURE_COLUMNS
+
+BLACKEYE_MODELS = ["logistic", "random_forest"]
+
+
+def blackeye_features(df, cfg, use_reputation=True):
+    """What BlackEye may see: log features, plus the IP reputation score."""
+    X = df[FEATURE_COLUMNS].copy()
+    if use_reputation:
+        X["reputation"] = np.asarray(crosscheck_score(df, cfg))
+    return X
+
+
+def blackeye(df, cfg, model, use_cleansing=None, use_reputation=True, seed=None,
+             return_probability=False):
+    """Train on the human agent's labels (optionally cleansed), test on the other 30%.
+
+    Returns True = blocked, indexed like df (test rows only).
+    """
+    m = cfg["ml"]
+    if use_cleansing is None:
+        use_cleansing = cfg["cleansing"]["enabled"]
+    seed = cfg["seed"] if seed is None else seed
+
+    X = blackeye_features(df, cfg, use_reputation)
+    truth = df["is_malicious"].astype(int)  # only used so the split matches the Lewis models
+    X_tr, X_te, _, _ = train_test_split(
+        X, truth, train_size=m["train_share"], stratify=truth, random_state=seed
+    )
+
+    agent = pandas.Series(human_agent(df, cfg, seed), index=df.index)
+    y_tr = agent.loc[X_tr.index]  # the agent's labels are the ONLY training labels
+    if use_cleansing:
+        keep = cleanse(X_tr, y_tr.to_numpy(), cfg)
+        X_tr, y_tr = X_tr[keep], y_tr[keep]
+
+    if model == "logistic":
+        clf = make_pipeline(StandardScaler(), LogisticRegression(class_weight="balanced", max_iter=1000))
+    elif model == "random_forest":
+        clf = RandomForestClassifier(
+            n_estimators=m["rf_trees"], class_weight="balanced", random_state=seed, n_jobs=-1
+        )
+    else:
+        raise ValueError(f"unknown model: {model}")
+
+    clf.fit(X_tr, y_tr.astype(int))
+    prob = clf.predict_proba(X_te)[:, 1]
+    if return_probability:
+        return pandas.Series(prob, index=X_te.index, name=model)
+    threshold = m["logistic_threshold"] if model == "logistic" else 0.5
+    return pandas.Series(prob >= threshold, index=X_te.index, name=model)

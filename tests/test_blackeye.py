@@ -48,3 +48,41 @@ def test_cleansing_can_be_switched_off():
     cfg, df = agent_world()
     cfg["cleansing"]["enabled"] = False
     assert cleanse(df[FEATURE_COLUMNS], human_agent(df, cfg), cfg).all()
+
+
+
+# ---- BlackEye model tests (step 14) ----
+from sklearn.metrics import roc_auc_score
+from simulator.databases import database_flags
+from simulator.methods_blackeye import BLACKEYE_MODELS, blackeye, blackeye_features
+from simulator.methods_lewis import lewis_ml
+from simulator.world import HIDDEN_COLUMNS
+
+
+def be_world(n=20000):
+    cfg = load_config()
+    cfg["world"]["n_ips"] = n
+    return cfg, database_flags(build_world(cfg), cfg)
+
+
+def test_blackeye_features_do_not_contain_hidden_columns():
+    cfg, df = be_world(2000)
+    X = blackeye_features(df, cfg)
+    assert not set(X.columns) & set(HIDDEN_COLUMNS)
+
+
+def test_blackeye_and_lewis_are_tested_on_the_same_ips():
+    cfg, df = be_world(2000)
+    for model in BLACKEYE_MODELS:
+        assert blackeye(df, cfg, model).index.equals(lewis_ml(df, cfg, "logistic").index)
+
+
+def test_blackeye_beats_the_human_agent_and_lewis_ml():
+    cfg, df = be_world()
+    pred = blackeye(df, cfg, "logistic")
+    truth = df.loc[pred.index, "is_malicious"]
+    assert pred[truth].mean() > cfg["human_agent"]["recall"]  # finds more than the agent it learnt from
+
+    be = blackeye(df, cfg, "logistic", return_probability=True)
+    lw = lewis_ml(df, cfg, "logistic", return_probability=True)
+    assert roc_auc_score(truth, be) > roc_auc_score(truth, lw)
