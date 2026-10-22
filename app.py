@@ -82,9 +82,7 @@ c2.markdown("**Defend against**  \nPassword-guessing attackers")
 c3.markdown("**Decide**  \nBlock or allow each IP, without seeing the truth")
 st.markdown("**Lewis:** blacklists and address  ·  **BlackEye:** login behaviour")
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["1. The world", "2. Who gets blocked", "3. Cleaning the labels", "4. The big simulation"]
-)
+tab1, tab2, tab3 = st.tabs(["1. The world", "2. Who gets blocked", "3. Cleaning the labels"])
 
 # ---------- tab 1 ----------
 with tab1:
@@ -158,13 +156,3 @@ with tab3:
     ct.columns = ["Attackers caught", "Precision", "Innocent wrongly blocked", "Shared wrongly blocked"]
     st.dataframe(ct.style.format("{:.1%}"), use_container_width=True)
     st.caption("BlackEye logistic, on test IPs")
-
-# ---------- tab 4 ----------
-with tab4:
-    st.subheader("The big simulation (planned)")
-    st.markdown(
-        "- **Time:** day-by-day logins\n"
-        "- **Time to blacklist**\n"
-        "- **Recovery policies:** expiry, decay, probation\n"
-        "- **Scale:** 30 seeds, about 4 experiments"
-    )
