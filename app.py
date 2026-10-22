@@ -10,10 +10,10 @@ from simulator.config import load_config
 from simulator.experiments import cleansing_demo, run_once
 
 KIND_NAMES = {
-    "single": "Normal user (one person)",
-    "shared": "Shared IP (office or campus, many people)",
+    "single": "Normal user",
+    "shared": "Shared IP",
     "attacker": "Obvious attacker",
-    "low_and_slow": "Low-and-slow attacker (hides among normal users)",
+    "low_and_slow": "Low-and-slow attacker",
 }
 DEFAULT_METHODS = [
     "human agent",
@@ -74,17 +74,13 @@ df, results, counts, clean_table = simulate(n_ips, attacker_pct, shared_pct, int
 
 # ---------- header ----------
 st.title("Wrongly blocked IP addresses")
-st.caption("Mini simulation of two papers: Lewis et al. (2020) and BlackEye (Jeon & Tak, 2022)")
+st.caption("Mini simulation: Lewis et al. (2020) vs BlackEye (Jeon & Tak, 2022)")
 
 c1, c2, c3 = st.columns(3)
-c1.markdown("**What we protect**  \nNormal users logging in, especially people behind a shared IP "
-            "(a campus or an office). Block that IP and all of them are locked out.")
-c2.markdown("**What we are defending against**  \nPassword-guessing attackers. Some are obvious, "
-            "some are 'low and slow' and hide among normal users.")
-c3.markdown("**The decision**  \nFor every IP: block or allow. The defender sees logs and "
-            "blacklist flags, never the truth.")
-st.markdown("**Two ways to decide.**  Lewis et al.: check blacklist databases and an address/location "
-            "model.  BlackEye: learn from what the IP did in the logs, using cleaned-up labels from a human agent.")
+c1.markdown("**Protect**  \nNormal users, including people sharing one IP")
+c2.markdown("**Defend against**  \nPassword-guessing attackers")
+c3.markdown("**Decide**  \nBlock or allow each IP, without seeing the truth")
+st.markdown("**Lewis:** blacklists and address  ·  **BlackEye:** login behaviour")
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["1. The world", "2. Who gets blocked", "3. Cleaning the labels", "4. The big simulation"]
@@ -92,30 +88,29 @@ tab1, tab2, tab3, tab4 = st.tabs(
 
 # ---------- tab 1 ----------
 with tab1:
-    st.subheader("What is in this world")
+    st.subheader("The world")
     kind_counts = df["kind"].value_counts()
     cols = st.columns(4)
     for col, kind in zip(cols, KIND_NAMES):
         col.metric(KIND_NAMES[kind], f"{int(kind_counts.get(kind, 0)):,}")
 
-    st.subheader("What the defender sees, and what is hidden")
+    st.subheader("What the defender sees")
     examples = pandas.concat([df[df["kind"] == k].head(1) for k in KIND_NAMES if (df["kind"] == k).any()])
     table = pandas.DataFrame({
-        "Blacklists flagging it (of 4)": examples["db_hits"].to_numpy(),
+        "Blacklists (of 4)": examples["db_hits"].to_numpy(),
         "Login attempts": examples["total_events"].to_numpy(),
         "Failed logins": (examples["failure_rate"] * 100).round(0).astype(int).astype(str).to_numpy() + "%",
         "Accounts tried": examples["distinct_accounts"].to_numpy(),
         "Night-time share": (examples["night_share"] * 100).round(0).astype(int).astype(str).to_numpy() + "%",
-        "Truth (hidden from the methods)": examples["kind"].map(KIND_NAMES).to_numpy(),
+        "Truth (hidden)": examples["kind"].map(KIND_NAMES).to_numpy(),
     })
     st.dataframe(table, hide_index=True, use_container_width=True)
-    st.caption("The methods see the first five columns. The last column is only used to score them.")
 
 # ---------- tab 2 ----------
 with tab2:
-    st.subheader("Who gets blocked, and who gets wrongly blocked")
+    st.subheader("Who gets blocked")
     chosen = st.multiselect(
-        "Methods to compare",
+        "Methods",
         list(results["method"]),
         default=DEFAULT_METHODS,
         format_func=lambda s: s.replace("_", " "),
@@ -133,52 +128,43 @@ with tab2:
              "Innocent shared IPs wrongly blocked (lower is better)", ".1%")
         fig.tight_layout()
         st.pyplot(fig)
-        st.caption("Grey: baselines.  Blue: Lewis et al. (2020).  Green: BlackEye (Jeon & Tak, 2022).")
+        st.caption("Grey: baseline  ·  Blue: Lewis  ·  Green: BlackEye")
 
         show = r[["caught", "precision", "wrongly_blocked_share", "shared_wrongly_blocked_share"]].copy()
-        show.columns = ["Attackers caught", "Right when it blocks (precision)",
-                        "Innocent IPs wrongly blocked", "Innocent shared IPs wrongly blocked"]
+        show.columns = ["Attackers caught", "Precision", "Innocent wrongly blocked", "Shared wrongly blocked"]
         show.index = [m.replace("_", " ") for m in show.index]
         st.dataframe(show.style.format("{:.1%}"), use_container_width=True)
 
     full = results.set_index("method")
     a, b = full.loc["cross-check (Lewis)"], full.loc["logistic (BlackEye)"]
     st.info(
-        f"In this world the Lewis cross-check catches {a['caught']:.0%} of attackers but wrongly blocks "
-        f"{a['shared_wrongly_blocked_share']:.1%} of innocent shared IPs. BlackEye (logistic) catches "
-        f"{b['caught']:.0%} and wrongly blocks {b['shared_wrongly_blocked_share']:.1%}."
+        f"Cross-check: {a['caught']:.0%} caught, {a['shared_wrongly_blocked_share']:.1%} of innocent shared IPs wrongly blocked.  "
+        f"BlackEye: {b['caught']:.0%} caught, {b['shared_wrongly_blocked_share']:.1%} wrongly blocked."
     )
-    st.caption("Rates, not counts, so methods are comparable: the ML methods are scored on the 30% of IPs "
-               "they did not train on, the others on all IPs. One world only; the 10-seed averages are in run_log.md.")
+    st.caption("One world. 10-seed averages are in run_log.md.")
 
 # ---------- tab 3 ----------
 with tab3:
-    st.subheader("BlackEye trains on a human agent's labels, and cleans them first")
-    st.write("The agent catches only about a quarter of attackers and sometimes blocks innocent IPs, so the "
-             "training labels are wrong in both directions. BlackEye scores every IP with a first simple model, "
-             "finds the point where the 'safe' and 'malicious' scores cross over, and drops labels on the wrong side.")
+    st.subheader("Cleaning the labels")
+    st.write("The human agent's labels are wrong in both directions. BlackEye drops the ones that look wrong.")
     k1, k2, k3 = st.columns(3)
-    k1.metric("Labels that are wrong", counts["wrong_labels"], help=f"out of {counts['labels']:,} IPs")
-    k2.metric("Labels dropped by cleansing", counts["dropped"])
-    k3.metric("Dropped labels that really were wrong", counts["wrong_dropped"])
+    k1.metric("Wrong labels", counts["wrong_labels"], help=f"out of {counts['labels']:,} IPs")
+    k2.metric("Dropped by cleansing", counts["dropped"])
+    k3.metric("Dropped and really wrong", counts["wrong_dropped"])
 
     ct = clean_table.set_index("cleansing")[["caught", "precision", "wrongly_blocked_share",
                                               "shared_wrongly_blocked_share"]]
     ct.index = ["Without cleansing", "With cleansing"]
-    ct.columns = ["Attackers caught", "Right when it blocks (precision)",
-                  "Innocent IPs wrongly blocked", "Innocent shared IPs wrongly blocked"]
+    ct.columns = ["Attackers caught", "Precision", "Innocent wrongly blocked", "Shared wrongly blocked"]
     st.dataframe(ct.style.format("{:.1%}"), use_container_width=True)
-    st.caption("BlackEye with logistic regression, scored on its 30% test IPs. Counts above are over all IPs.")
+    st.caption("BlackEye logistic, on test IPs")
 
 # ---------- tab 4 ----------
 with tab4:
-    st.subheader("The big simulation (planned, not built yet)")
-    st.write("This mini version compares how the two papers decide whom to block. The big version adds time "
-             "and asks the question neither paper answers: what happens after an innocent IP is blocked?")
+    st.subheader("The big simulation (planned)")
     st.markdown(
-        "- **Time:** logins arrive day by day, and IPs are blocked and listed over weeks.\n"
-        "- **Time to blacklist:** BlackEye reports 66.2 days for the agent alone and 39.4 days with the model; the big version measures this.\n"
-        "- **Recovery policies:** fixed expiry, decaying score, and probation, compared on how long innocent IPs stay blocked.\n"
-        "- **Scale:** 30 seeds and about four experiments.\n"
-        "- **Mini is a true subset:** the same world, methods and scoring, extended."
+        "- **Time:** day-by-day logins\n"
+        "- **Time to blacklist**\n"
+        "- **Recovery policies:** expiry, decay, probation\n"
+        "- **Scale:** 30 seeds, about 4 experiments"
     )
