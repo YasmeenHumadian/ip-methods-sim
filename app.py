@@ -74,13 +74,13 @@ df, results, counts, clean_table = simulate(n_ips, attacker_pct, shared_pct, int
 
 # ---------- header ----------
 st.title("Wrongly blocked IP addresses")
-st.caption("Mini simulation: Lewis et al. (2020) vs BlackEye (Jeon & Tak, 2022)")
+st.caption("Mini simulation: Lewis et al. (2020) vs Jeon & Tak (2022)")
 
 c1, c2, c3 = st.columns(3)
 c1.markdown("**Protect**  \nNormal users, including people sharing one IP")
 c2.markdown("**Defend against**  \nPassword-guessing attackers")
 c3.markdown("**Decide**  \nBlock or allow each IP, without seeing the truth")
-st.markdown("**Lewis:** blacklists and address  ·  **BlackEye:** login behaviour")
+st.markdown("**Lewis et al. (2020):** blacklists and address  ·  **Jeon & Tak (2022):** login behaviour")
 
 tab1, tab2, tab3 = st.tabs(["1. The world", "2. Who gets blocked", "3. Cleaning the labels"])
 
@@ -126,7 +126,7 @@ with tab2:
              "Innocent shared IPs wrongly blocked (lower is better)", ".1%")
         fig.tight_layout()
         st.pyplot(fig)
-        st.caption("Grey: baseline  ·  Blue: Lewis  ·  Green: BlackEye")
+        st.caption("Grey: baseline  ·  Blue: Lewis et al.  ·  Green: Jeon & Tak")
 
         show = r[["caught", "precision", "wrongly_blocked_share", "shared_wrongly_blocked_share"]].copy()
         show.columns = ["Attackers caught", "Precision", "Innocent wrongly blocked", "Shared wrongly blocked"]
